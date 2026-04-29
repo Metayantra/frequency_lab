@@ -23,10 +23,12 @@
 <script type="text/babel">
 const{useState,useRef,useEffect}=React;
 
-// ── STRIPE LINK — REEMPLAZA CON TU URL ────────────────────────
-const STRIPE_LINK="https://buy.stripe.com/TU_LINK_AQUI";
+// ── STRIPE LINK ── reemplaza con tu URL real ──────────────────
+const STRIPE_LINK="https://buy.stripe.com/aFa7sMbiY1De45EfVt3AY03";
 
-// ── COLORES ───────────────────────────────────────────────────
+// ── API endpoint — apunta al proxy serverless de Vercel ───────
+const API="/api/proxy";
+
 const C={
   bg:"#05080f",surface:"#0a1020",card:"#0d1428",
   border:"#1a2a4a",gold:"#c8a84b",goldL:"#e8c86a",
@@ -34,14 +36,12 @@ const C={
   muted:"#5a7090",err:"#ff4d6a",ok:"#00c8a0",
 };
 
-// ── STORAGE (localStorage) ────────────────────────────────────
+const SK={u:"mty_users_v1",s:"mty_sess_v1"};
 const sg=k=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}};
 const ss=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
-const SK={u:"mty_users_v1",s:"mty_sess_v1"};
 const hp=p=>btoa(unescape(encodeURIComponent(p+"_mty_2025"))).slice(0,28);
 const daysLeft=ts=>Math.max(0,Math.ceil((ts-Date.now())/86400000));
 
-// ── RIFE DB ───────────────────────────────────────────────────
 const RIFE=[
   {n:"Ansiedad",f:[6.26,7.83,10,40],c:"Mental"},
   {n:"Depresión",f:[10,40,528,741],c:"Mental"},
@@ -88,7 +88,6 @@ const RIFE=[
 ];
 const RIFE_CATS=[...new Set(RIFE.map(r=>r.c))];
 
-// ── BINAURAL DB ───────────────────────────────────────────────
 const BIN=[
   {n:"Sueño Delta Profundo",b:1.5,cr:200,cat:"Delta",d:"Regeneración celular profunda.",p:"30-45 min antes de dormir, oscuridad total."},
   {n:"Meditación Theta",b:6,cr:300,cat:"Theta",d:"Creatividad, intuición y estados expandidos.",p:"Meditación guiada, 20-30 min."},
@@ -97,139 +96,98 @@ const BIN=[
   {n:"Gamma Insight",b:40,cr:500,cat:"Gamma",d:"Cognición elevada y procesamiento holístico.",p:"Meditación avanzada, 15-20 min."},
   {n:"Resonancia Schumann",b:7.83,cr:250,cat:"Theta",d:"Frecuencia base de la Tierra.",p:"Grounding en naturaleza, 30 min."},
   {n:"ADN Reparador 528Hz",b:8,cr:528,cat:"Alpha",d:"Frecuencia Solfeggio de reparación del ADN.",p:"Mañana en ayunas, 20-30 min."},
-  {n:"Liberación 396Hz",b:4,cr:396,cat:"Theta",d:"Libera culpa y miedo.",p:"Meditación emocional, 20 min."},
+  {n:"Liberación 396Hz",b:4,cr:396,cat:"Theta",d:"Libera culpa y miedo. Enraizamiento.",p:"Meditación emocional, 20 min."},
   {n:"Transformación 417Hz",b:6,cr:417,cat:"Theta",d:"Facilita el cambio. Limpieza de traumas.",p:"Tránsito emocional, 20 min."},
   {n:"Conexión 639Hz",b:10,cr:639,cat:"Alpha",d:"Amor, relaciones y armonía interpersonal.",p:"Pareja o familia, 30 min."},
   {n:"Iluminación 963Hz",b:7.83,cr:963,cat:"Theta",d:"Conexión con el Uno. Corona activa.",p:"Práctica espiritual, 15-20 min."},
 ];
 
-// ── AUDIO ─────────────────────────────────────────────────────
 const mkAC=()=>new(window.AudioContext||window.webkitAudioContext)();
 function playTone(freq){
   const ctx=mkAC(),g=ctx.createGain();
-  g.gain.setValueAtTime(0,ctx.currentTime);
-  g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+0.3);
+  g.gain.setValueAtTime(0,ctx.currentTime);g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+0.3);
   g.connect(ctx.destination);
-  const o=ctx.createOscillator();
-  o.type="sine";o.frequency.setValueAtTime(freq,ctx.currentTime);
+  const o=ctx.createOscillator();o.type="sine";o.frequency.setValueAtTime(freq,ctx.currentTime);
   o.connect(g);o.start();
   return{stop:()=>{try{g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.3);setTimeout(()=>{o.stop();ctx.close();},400);}catch{}}};
 }
 function playBin(beat,carrier){
-  const ctx=mkAC(),mg=ctx.createChannelMerger(2);
-  mg.connect(ctx.destination);
+  const ctx=mkAC(),mg=ctx.createChannelMerger(2);mg.connect(ctx.destination);
   const mk=v=>{const g=ctx.createGain();g.gain.setValueAtTime(0,ctx.currentTime);g.gain.linearRampToValueAtTime(v,ctx.currentTime+0.5);return g;};
-  const gL=mk(0.3),gR=mk(0.3);
-  gL.connect(mg,0,0);gR.connect(mg,0,1);
+  const gL=mk(0.3),gR=mk(0.3);gL.connect(mg,0,0);gR.connect(mg,0,1);
   const oL=ctx.createOscillator(),oR=ctx.createOscillator();
-  oL.type=oR.type="sine";
-  oL.frequency.setValueAtTime(carrier,ctx.currentTime);
-  oR.frequency.setValueAtTime(carrier+beat,ctx.currentTime);
+  oL.type=oR.type="sine";oL.frequency.setValueAtTime(carrier,ctx.currentTime);oR.frequency.setValueAtTime(carrier+beat,ctx.currentTime);
   oL.connect(gL);oR.connect(gR);oL.start();oR.start();
   return{stop:()=>{try{gL.gain.linearRampToValueAtTime(0,ctx.currentTime+0.3);gR.gain.linearRampToValueAtTime(0,ctx.currentTime+0.3);setTimeout(()=>{oL.stop();oR.stop();ctx.close();},400);}catch{}}};
 }
 
-// ── WAVE VIZ ──────────────────────────────────────────────────
-function WaveViz({active,freq=440,color=C.gold}){
+function WaveViz({active,freq=440,color="#c8a84b"}){
   const ref=useRef(null),fr=useRef(null),t=useRef(0);
   useEffect(()=>{
-    const c=ref.current;if(!c)return;
-    const ctx=c.getContext("2d");
-    const draw=()=>{
-      t.current+=0.04;
-      const{width:w,height:h}=c;
-      ctx.clearRect(0,0,w,h);
-      ctx.strokeStyle=color;ctx.lineWidth=1.5;
-      ctx.shadowColor=color;ctx.shadowBlur=active?8:0;
-      ctx.beginPath();
-      const amp=active?h*0.35:h*0.08,cy=Math.max(2,Math.min(10,freq/200));
-      for(let x=0;x<w;x++){const y=h/2+amp*Math.sin((x/w)*cy*2*Math.PI+t.current);x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
-      ctx.stroke();fr.current=requestAnimationFrame(draw);
-    };
+    const c=ref.current;if(!c)return;const ctx=c.getContext("2d");
+    const draw=()=>{t.current+=0.04;const{width:w,height:h}=c;ctx.clearRect(0,0,w,h);ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.shadowColor=color;ctx.shadowBlur=active?8:0;ctx.beginPath();const amp=active?h*0.35:h*0.08,cy=Math.max(2,Math.min(10,freq/200));for(let x=0;x<w;x++){const y=h/2+amp*Math.sin((x/w)*cy*2*Math.PI+t.current);x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();fr.current=requestAnimationFrame(draw);};
     draw();return()=>cancelAnimationFrame(fr.current);
   },[active,freq,color]);
   return React.createElement("canvas",{ref,width:300,height:50,style:{width:"100%",height:50}});
 }
 
-// ── ATOMS ─────────────────────────────────────────────────────
-const Badge=({l})=>React.createElement("span",{style:{background:"rgba(200,168,75,0.15)",border:`1px solid ${C.goldD}`,color:C.gold,fontSize:10,fontWeight:700,letterSpacing:1,padding:"2px 8px",borderRadius:10,textTransform:"uppercase"}},l);
+const Badge=({l})=>React.createElement("span",{style:{background:"rgba(200,168,75,0.15)",border:"1px solid #8a6f2a",color:"#c8a84b",fontSize:10,fontWeight:700,letterSpacing:1,padding:"2px 8px",borderRadius:10,textTransform:"uppercase"}},l);
 
 function Inp({label,type="text",val,set,ph,err}){
   return React.createElement("div",{style:{marginBottom:14}},
-    label&&React.createElement("div",{style:{color:C.muted,fontSize:11,letterSpacing:1,textTransform:"uppercase",marginBottom:5}},label),
-    React.createElement("input",{type,value:val,onChange:e=>set(e.target.value),placeholder:ph,
-      style:{width:"100%",boxSizing:"border-box",background:C.card,border:`1px solid ${err?C.err:C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}),
-    err&&React.createElement("div",{style:{color:C.err,fontSize:11,marginTop:4}},err)
+    label&&React.createElement("div",{style:{color:"#5a7090",fontSize:11,letterSpacing:1,textTransform:"uppercase",marginBottom:5}},label),
+    React.createElement("input",{type,value:val,onChange:e=>set(e.target.value),placeholder:ph,style:{width:"100%",boxSizing:"border-box",background:"#0d1428",border:`1px solid ${err?"#ff4d6a":"#1a2a4a"}`,borderRadius:10,padding:"12px 14px",color:"#e8f0ff",fontSize:13,outline:"none",fontFamily:"inherit"}}),
+    err&&React.createElement("div",{style:{color:"#ff4d6a",fontSize:11,marginTop:4}},err)
   );
 }
-
 function Btn({onClick,disabled,children,full}){
-  return React.createElement("button",{onClick,disabled,style:{width:full?"100%":undefined,padding:"13px 20px",
-    background:disabled?C.surface:`linear-gradient(135deg,${C.gold},${C.goldD})`,
-    border:`1px solid ${disabled?C.border:C.goldD}`,borderRadius:10,
-    color:disabled?C.muted:"#000",fontWeight:800,fontSize:13,cursor:disabled?"not-allowed":"pointer",textTransform:"uppercase"}},children);
+  return React.createElement("button",{onClick,disabled,style:{width:full?"100%":undefined,padding:"13px 20px",background:disabled?"#0a1020":"linear-gradient(135deg,#c8a84b,#8a6f2a)",border:`1px solid ${disabled?"#1a2a4a":"#8a6f2a"}`,borderRadius:10,color:disabled?"#5a7090":"#000",fontWeight:800,fontSize:13,cursor:disabled?"not-allowed":"pointer",textTransform:"uppercase"}},children);
+}
+function CTA({type="shop"}){
+  const d={shop:{i:"◈",t:"Potencia tu experiencia",d:"Combina con nuestros dispositivos piezoeléctricos con bobinas Rodin.",b:"Ver dispositivos",h:"https://metayantra.com.mx"},wa:{i:"◉",t:"¿Dudas sobre tu protocolo?",d:"Nuestros especialistas te guían personalmente.",b:"WhatsApp Gratis",h:"https://wa.link/metayantra"}};
+  const c=d[type]||d.shop;
+  return React.createElement("div",{style:{background:"linear-gradient(135deg,#0d1428,#0f1a30)",border:"1px solid #8a6f2a",borderRadius:12,padding:"16px 18px",margin:"20px 0",textAlign:"center"}},
+    React.createElement("div",{style:{fontSize:20,color:"#c8a84b",marginBottom:6}},c.i),
+    React.createElement("div",{style:{color:"#e8c86a",fontSize:12,fontWeight:700,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}},c.t),
+    React.createElement("div",{style:{color:"#5a7090",fontSize:11,lineHeight:1.6,marginBottom:12}},c.d),
+    React.createElement("a",{href:c.h,target:"_blank",rel:"noreferrer",style:{display:"inline-block",background:"linear-gradient(135deg,#c8a84b,#8a6f2a)",color:"#000",fontWeight:700,fontSize:11,padding:"8px 18px",borderRadius:20,textDecoration:"none",textTransform:"uppercase"}},c.b)
+  );
 }
 
-function CTA({type="shop"}){
-  const d={
-    shop:{i:"◈",t:"Potencia tu experiencia",d:"Combina con nuestros dispositivos piezoeléctricos con bobinas Rodin.",b:"Ver dispositivos",h:"https://metayantra.com.mx"},
-    wa:{i:"◉",t:"¿Dudas sobre tu protocolo?",d:"Nuestros especialistas te guían personalmente.",b:"WhatsApp Gratis",h:"https://wa.link/metayantra"},
-  };
-  const c=d[type]||d.shop;
-  return React.createElement("div",{style:{background:`linear-gradient(135deg,${C.card},#0f1a30)`,border:`1px solid ${C.goldD}`,borderRadius:12,padding:"16px 18px",margin:"20px 0",textAlign:"center"}},
-    React.createElement("div",{style:{fontSize:20,color:C.gold,marginBottom:6}},c.i),
-    React.createElement("div",{style:{color:C.goldL,fontSize:12,fontWeight:700,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}},c.t),
-    React.createElement("div",{style:{color:C.muted,fontSize:11,lineHeight:1.6,marginBottom:12}},c.d),
-    React.createElement("a",{href:c.h,target:"_blank",rel:"noreferrer",style:{display:"inline-block",background:`linear-gradient(135deg,${C.gold},${C.goldD})`,color:"#000",fontWeight:700,fontSize:11,padding:"8px 18px",borderRadius:20,textDecoration:"none",textTransform:"uppercase"}},c.b)
-  );
+// ── Llamada IA usando el proxy ────────────────────────────────
+async function callAI(system, userMsg) {
+  const r = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 900,
+      system,
+      messages: [{ role: "user", content: userMsg }],
+    }),
+  });
+  const d = await r.json();
+  const txt = d.content?.find(b => b.type === "text")?.text || "{}";
+  return JSON.parse(txt.replace(/```json|```/g, "").trim());
 }
 
 // ══ AUTH ══════════════════════════════════════════════════════
 function AuthScreen({onAuth}){
-  const[mode,setMode]=useState("login");
-  const[email,setEmail]=useState("");
-  const[pwd,setPwd]=useState("");
-  const[pwd2,setPwd2]=useState("");
-  const[err,setErr]=useState({});
-  const[loading,setLoading]=useState(false);
-
-  const validate=()=>{
-    const e={};
-    if(!email.match(/^[^@]+@[^@]+\.[^@]+$/))e.email="Correo inválido";
-    if(pwd.length<8)e.pwd="Mínimo 8 caracteres";
-    if(mode==="reg"&&pwd!==pwd2)e.pwd2="Las contraseñas no coinciden";
-    return e;
-  };
-
-  const submit=()=>{
-    const e=validate();setErr(e);
-    if(Object.keys(e).length)return;
-    setLoading(true);
-    const users=sg(SK.u)||{};
-    if(mode==="reg"){
-      if(users[email]){setErr({email:"Correo ya registrado"});setLoading(false);return;}
-      const u={email,hash:hp(pwd),createdAt:Date.now(),sub:"none"};
-      users[email]=u;ss(SK.u,users);ss(SK.s,{email,at:Date.now()});onAuth(u);
-    }else{
-      const u=users[email];
-      if(!u||u.hash!==hp(pwd)){setErr({pwd:"Correo o contraseña incorrectos"});setLoading(false);return;}
-      ss(SK.s,{email,at:Date.now()});onAuth(u);
-    }
-    setLoading(false);
-  };
-
+  const[mode,setMode]=useState("login");const[email,setEmail]=useState("");const[pwd,setPwd]=useState("");const[pwd2,setPwd2]=useState("");const[err,setErr]=useState({});const[loading,setLoading]=useState(false);
+  const validate=()=>{const e={};if(!email.match(/^[^@]+@[^@]+\.[^@]+$/))e.email="Correo inválido";if(pwd.length<8)e.pwd="Mínimo 8 caracteres";if(mode==="reg"&&pwd!==pwd2)e.pwd2="Las contraseñas no coinciden";return e;};
+  const submit=()=>{const e=validate();setErr(e);if(Object.keys(e).length)return;setLoading(true);const users=sg(SK.u)||{};if(mode==="reg"){if(users[email]){setErr({email:"Correo ya registrado"});setLoading(false);return;}const u={email,hash:hp(pwd),createdAt:Date.now(),sub:"none"};users[email]=u;ss(SK.u,users);ss(SK.s,{email,at:Date.now()});onAuth(u);}else{const u=users[email];if(!u||u.hash!==hp(pwd)){setErr({pwd:"Correo o contraseña incorrectos"});setLoading(false);return;}ss(SK.s,{email,at:Date.now()});onAuth(u);}setLoading(false);};
   return(
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px"}}>
+    <div style={{minHeight:"100vh",background:"#05080f",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px"}}>
       <div style={{width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:10,color:C.gold,letterSpacing:4,textTransform:"uppercase",marginBottom:8}}>✦ Metayantra ✦</div>
-          <div style={{fontSize:24,fontWeight:800,background:`linear-gradient(135deg,${C.goldL},${C.gold})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Frequency Lab</div>
-          <div style={{color:C.muted,fontSize:11,marginTop:6}}>Uniendo Ciencia con Misticismo</div>
+          <div style={{fontSize:10,color:"#c8a84b",letterSpacing:4,textTransform:"uppercase",marginBottom:8}}>✦ Metayantra ✦</div>
+          <div style={{fontSize:24,fontWeight:800,background:"linear-gradient(135deg,#e8c86a,#c8a84b)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Frequency Lab</div>
+          <div style={{color:"#5a7090",fontSize:11,marginTop:6}}>Uniendo Ciencia con Misticismo</div>
         </div>
-        <div style={{background:C.surface,borderRadius:16,padding:24,border:`1px solid ${C.border}`}}>
-          <div style={{display:"flex",background:C.bg,borderRadius:10,padding:4,marginBottom:22}}>
+        <div style={{background:"#0a1020",borderRadius:16,padding:24,border:"1px solid #1a2a4a"}}>
+          <div style={{display:"flex",background:"#05080f",borderRadius:10,padding:4,marginBottom:22}}>
             {[["login","Iniciar sesión"],["reg","Crear cuenta"]].map(([m,l])=>(
-              <button key={m} onClick={()=>{setMode(m);setErr({});}} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:mode===m?`linear-gradient(135deg,rgba(200,168,75,0.25),rgba(200,168,75,0.08))`:"none",color:mode===m?C.gold:C.muted,fontWeight:mode===m?700:400,fontSize:12,cursor:"pointer"}}>{l}</button>
+              <button key={m} onClick={()=>{setMode(m);setErr({});}} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:mode===m?"linear-gradient(135deg,rgba(200,168,75,0.25),rgba(200,168,75,0.08))":"none",color:mode===m?"#c8a84b":"#5a7090",fontWeight:mode===m?700:400,fontSize:12,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
           <Inp label="Correo" type="email" val={email} set={setEmail} ph="tu@correo.com" err={err.email}/>
@@ -237,9 +195,9 @@ function AuthScreen({onAuth}){
           {mode==="reg"&&<Inp label="Confirmar contraseña" type="password" val={pwd2} set={setPwd2} ph="Repite tu contraseña" err={err.pwd2}/>}
           <Btn onClick={submit} disabled={loading} full>{loading?"Procesando...":(mode==="login"?"Entrar →":"Crear cuenta →")}</Btn>
         </div>
-        <div style={{marginTop:18,background:"rgba(200,168,75,0.06)",border:`1px solid ${C.goldD}`,borderRadius:12,padding:16,textAlign:"center"}}>
-          <div style={{color:C.gold,fontSize:13,fontWeight:700,marginBottom:6}}>✦ 3 meses completamente gratis</div>
-          <div style={{color:C.muted,fontSize:11,lineHeight:1.7}}>Sin cargos por 90 días · Después $199 MXN/mes</div>
+        <div style={{marginTop:18,background:"rgba(200,168,75,0.06)",border:"1px solid #8a6f2a",borderRadius:12,padding:16,textAlign:"center"}}>
+          <div style={{color:"#c8a84b",fontSize:13,fontWeight:700,marginBottom:6}}>✦ 3 meses completamente gratis</div>
+          <div style={{color:"#5a7090",fontSize:11,lineHeight:1.7}}>Sin cargos por 90 días · Después $199 MXN/mes</div>
         </div>
       </div>
     </div>
@@ -248,66 +206,35 @@ function AuthScreen({onAuth}){
 
 // ══ PRICING ══════════════════════════════════════════════════
 function PricingScreen({user,onActivated,onLogout}){
-  const[step,setStep]=useState("plans");
-  const[activating,setActivating]=useState(false);
-
-  const activate=()=>{
-    setActivating(true);
-    const users=sg(SK.u)||{};
-    const trialEnd=Date.now()+(90*24*60*60*1000);
-    const updated={...users[user.email],sub:"trial",trialEndsAt:trialEnd};
-    users[user.email]=updated;ss(SK.u,users);
-    setStep("done");setTimeout(()=>onActivated(updated),1400);
-  };
-
+  const[step,setStep]=useState("plans");const[activating,setActivating]=useState(false);
+  const activate=()=>{setActivating(true);const users=sg(SK.u)||{};const trialEnd=Date.now()+(90*24*60*60*1000);const updated={...users[user.email],sub:"trial",trialEndsAt:trialEnd};users[user.email]=updated;ss(SK.u,users);setStep("done");setTimeout(()=>onActivated(updated),1400);};
   const feats=["Generador Rife · 40+ padecimientos","Neurófono IA · frecuencias ultrasónicas","Metasonos IA · binaurales por intención","Protocolos científico-místicos","Actualizaciones incluidas","Soporte prioritario Metayantra"];
-
-  if(step==="done")return(
-    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-      <div style={{fontSize:40}}>✦</div>
-      <div style={{color:C.gold,fontSize:20,fontWeight:800}}>¡Acceso activado!</div>
-      <div style={{color:C.muted,fontSize:13}}>Cargando tu Frequency Lab...</div>
-    </div>
-  );
-
+  if(step==="done")return<div style={{minHeight:"100vh",background:"#05080f",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}><div style={{fontSize:40}}>✦</div><div style={{color:"#c8a84b",fontSize:20,fontWeight:800}}>¡Acceso activado!</div><div style={{color:"#5a7090",fontSize:13}}>Cargando tu Frequency Lab...</div></div>;
   return(
-    <div style={{minHeight:"100vh",background:C.bg,padding:"24px 20px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+    <div style={{minHeight:"100vh",background:"#05080f",padding:"24px 20px",display:"flex",flexDirection:"column",alignItems:"center"}}>
       <div style={{width:"100%",maxWidth:420}}>
         <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{fontSize:10,color:C.gold,letterSpacing:4,textTransform:"uppercase",marginBottom:8}}>✦ Metayantra ✦</div>
-          <div style={{fontSize:20,fontWeight:800,color:C.text}}>Activa tu acceso</div>
-          <div style={{color:C.muted,fontSize:12,marginTop:6}}>Hola {user.email.split("@")[0]} 👋</div>
+          <div style={{fontSize:10,color:"#c8a84b",letterSpacing:4,textTransform:"uppercase",marginBottom:8}}>✦ Metayantra ✦</div>
+          <div style={{fontSize:20,fontWeight:800,color:"#e8f0ff"}}>Activa tu acceso</div>
+          <div style={{color:"#5a7090",fontSize:12,marginTop:6}}>Hola {user.email.split("@")[0]} 👋</div>
         </div>
-        <div style={{background:`linear-gradient(135deg,${C.card},#0f1a30)`,border:`2px solid ${C.gold}`,borderRadius:16,padding:24,marginBottom:14,position:"relative",overflow:"hidden"}}>
-          <div style={{position:"absolute",top:14,right:14,background:C.gold,color:"#000",fontSize:9,fontWeight:800,padding:"4px 10px",borderRadius:20}}>LANZAMIENTO</div>
+        <div style={{background:"linear-gradient(135deg,#0d1428,#0f1a30)",border:"2px solid #c8a84b",borderRadius:16,padding:24,marginBottom:14,position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:14,right:14,background:"#c8a84b",color:"#000",fontSize:9,fontWeight:800,padding:"4px 10px",borderRadius:20}}>LANZAMIENTO</div>
           <div style={{marginBottom:18}}>
             <div style={{display:"flex",alignItems:"baseline",gap:10}}>
-              <span style={{color:C.gold,fontSize:40,fontWeight:800,lineHeight:1}}>$0</span>
-              <div><div style={{color:C.muted,fontSize:12}}>primeros 3 meses</div><div style={{color:C.goldL,fontSize:11,fontWeight:700}}>luego $199 MXN/mes</div></div>
+              <span style={{color:"#c8a84b",fontSize:40,fontWeight:800,lineHeight:1}}>$0</span>
+              <div><div style={{color:"#5a7090",fontSize:12}}>primeros 3 meses</div><div style={{color:"#e8c86a",fontSize:11,fontWeight:700}}>luego $199 MXN/mes</div></div>
             </div>
           </div>
-          {feats.map(f=>React.createElement("div",{key:f,style:{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${C.border}`}},
-            React.createElement("span",{style:{color:C.gold,fontSize:14}},"◦"),
-            React.createElement("span",{style:{color:C.muted,fontSize:12}},f)
-          ))}
+          {feats.map(f=>React.createElement("div",{key:f,style:{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #1a2a4a"}},React.createElement("span",{style:{color:"#c8a84b",fontSize:14}},"◦"),React.createElement("span",{style:{color:"#5a7090",fontSize:12}},f)))}
           <div style={{marginTop:20,display:"flex",flexDirection:"column",gap:10}}>
-            <a href={STRIPE_LINK} target="_blank" rel="noreferrer" onClick={()=>setStep("stripe")}
-              style={{display:"block",background:`linear-gradient(135deg,${C.gold},${C.goldD})`,color:"#000",fontWeight:800,fontSize:13,padding:"14px",borderRadius:10,textDecoration:"none",textTransform:"uppercase",textAlign:"center"}}>
-              ◈ Pago seguro con Stripe →
-            </a>
-            {step==="stripe"&&(
-              <button onClick={activate} disabled={activating}
-                style={{width:"100%",padding:"12px",background:"none",border:`1px solid ${C.ok}`,borderRadius:10,color:C.ok,fontWeight:700,fontSize:12,cursor:"pointer"}}>
-                {activating?"Activando...":"✓ Ya completé el registro en Stripe"}
-              </button>
-            )}
-            {step==="plans"&&<div style={{color:C.muted,fontSize:11,textAlign:"center",lineHeight:1.6}}>Al hacer clic serás redirigido a Stripe.<br/>Regresa aquí y confirma tu registro.</div>}
+            <a href={STRIPE_LINK} target="_blank" rel="noreferrer" onClick={()=>setStep("stripe")} style={{display:"block",background:"linear-gradient(135deg,#c8a84b,#8a6f2a)",color:"#000",fontWeight:800,fontSize:13,padding:"14px",borderRadius:10,textDecoration:"none",textTransform:"uppercase",textAlign:"center"}}>◈ Pago seguro con Stripe →</a>
+            {step==="stripe"&&<button onClick={activate} disabled={activating} style={{width:"100%",padding:"12px",background:"none",border:"1px solid #00c8a0",borderRadius:10,color:"#00c8a0",fontWeight:700,fontSize:12,cursor:"pointer"}}>{activating?"Activando...":"✓ Ya completé el registro en Stripe"}</button>}
+            {step==="plans"&&<div style={{color:"#5a7090",fontSize:11,textAlign:"center",lineHeight:1.6}}>Al hacer clic serás redirigido a Stripe.<br/>Regresa aquí y confirma tu registro.</div>}
           </div>
         </div>
-        <div style={{background:"rgba(0,200,160,0.07)",border:"1px solid rgba(0,200,160,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:11,color:C.ok,textAlign:"center"}}>
-          🔒 Pago 100% seguro · Stripe · Cancela cuando quieras
-        </div>
-        <button onClick={onLogout} style={{background:"none",border:"none",color:C.muted,fontSize:11,cursor:"pointer",display:"block",margin:"0 auto",textDecoration:"underline"}}>Cerrar sesión</button>
+        <div style={{background:"rgba(0,200,160,0.07)",border:"1px solid rgba(0,200,160,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:11,color:"#00c8a0",textAlign:"center"}}>🔒 Pago 100% seguro · Stripe · Cancela cuando quieras</div>
+        <button onClick={onLogout} style={{background:"none",border:"none",color:"#5a7090",fontSize:11,cursor:"pointer",display:"block",margin:"0 auto",textDecoration:"underline"}}>Cerrar sesión</button>
       </div>
     </div>
   );
@@ -315,101 +242,70 @@ function PricingScreen({user,onActivated,onLogout}){
 
 // ══ APP HEADER ════════════════════════════════════════════════
 function AppHeader({user,onLogout}){
-  const[menu,setMenu]=useState(false);
-  const days=user.sub==="trial"?daysLeft(user.trialEndsAt):null;
+  const[menu,setMenu]=useState(false);const days=user.sub==="trial"?daysLeft(user.trialEndsAt):null;
   return(
-    <div style={{padding:"16px 20px 12px",borderBottom:`1px solid ${C.border}`,position:"relative"}}>
+    <div style={{padding:"16px 20px 12px",borderBottom:"1px solid #1a2a4a",position:"relative"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <div style={{fontSize:9,color:C.gold,letterSpacing:3,textTransform:"uppercase"}}>✦ Metayantra</div>
-          <div style={{fontSize:18,fontWeight:800,background:`linear-gradient(135deg,${C.goldL},${C.gold})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",lineHeight:1.2}}>Frequency Lab</div>
-        </div>
-        <button onClick={()=>setMenu(!menu)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:22,padding:"6px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
-          <div style={{width:7,height:7,borderRadius:"50%",background:C.ok}}/>
-          <span style={{color:C.muted,fontSize:11}}>{user.email.split("@")[0]}</span>
+        <div><div style={{fontSize:9,color:"#c8a84b",letterSpacing:3,textTransform:"uppercase"}}>✦ Metayantra</div><div style={{fontSize:18,fontWeight:800,background:"linear-gradient(135deg,#e8c86a,#c8a84b)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",lineHeight:1.2}}>Frequency Lab</div></div>
+        <button onClick={()=>setMenu(!menu)} style={{background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:22,padding:"6px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:7,height:7,borderRadius:"50%",background:"#00c8a0"}}/>
+          <span style={{color:"#5a7090",fontSize:11}}>{user.email.split("@")[0]}</span>
         </button>
       </div>
-      {days!==null&&(
-        <div style={{marginTop:8,background:"rgba(200,168,75,0.06)",borderRadius:8,padding:"5px 10px",fontSize:10,color:C.goldD,display:"flex",justifyContent:"space-between"}}>
-          <span>Trial activo</span><span style={{color:C.gold,fontWeight:700}}>{days} días restantes</span>
-        </div>
-      )}
-      {menu&&(
-        <div style={{position:"absolute",top:60,right:16,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,zIndex:100,minWidth:200,boxShadow:"0 8px 30px rgba(0,0,0,0.6)"}}>
-          <div style={{color:C.muted,fontSize:11,marginBottom:4}}>Sesión activa</div>
-          <div style={{color:C.text,fontSize:12,marginBottom:12,wordBreak:"break-all"}}>{user.email}</div>
-          <a href="https://metayantra.com.mx" target="_blank" rel="noreferrer" style={{display:"block",color:C.gold,fontSize:11,textDecoration:"none",marginBottom:8}}>◈ Tienda Metayantra</a>
-          <a href="https://wa.link/metayantra" target="_blank" rel="noreferrer" style={{display:"block",color:C.gold,fontSize:11,textDecoration:"none",marginBottom:12}}>◉ WhatsApp</a>
-          <button onClick={()=>{setMenu(false);onLogout();}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:11,width:"100%"}}>Cerrar sesión</button>
-        </div>
-      )}
+      {days!==null&&<div style={{marginTop:8,background:"rgba(200,168,75,0.06)",borderRadius:8,padding:"5px 10px",fontSize:10,color:"#8a6f2a",display:"flex",justifyContent:"space-between"}}><span>Trial activo</span><span style={{color:"#c8a84b",fontWeight:700}}>{days} días restantes</span></div>}
+      {menu&&<div style={{position:"absolute",top:60,right:16,background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:12,padding:16,zIndex:100,minWidth:200,boxShadow:"0 8px 30px rgba(0,0,0,0.6)"}}>
+        <div style={{color:"#5a7090",fontSize:11,marginBottom:4}}>Sesión activa</div>
+        <div style={{color:"#e8f0ff",fontSize:12,marginBottom:12,wordBreak:"break-all"}}>{user.email}</div>
+        <a href="https://metayantra.com.mx" target="_blank" rel="noreferrer" style={{display:"block",color:"#c8a84b",fontSize:11,textDecoration:"none",marginBottom:8}}>◈ Tienda Metayantra</a>
+        <a href="https://wa.link/metayantra" target="_blank" rel="noreferrer" style={{display:"block",color:"#c8a84b",fontSize:11,textDecoration:"none",marginBottom:12}}>◉ WhatsApp</a>
+        <button onClick={()=>{setMenu(false);onLogout();}} style={{background:"none",border:"1px solid #1a2a4a",color:"#5a7090",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:11,width:"100%"}}>Cerrar sesión</button>
+      </div>}
     </div>
   );
 }
-
 function Nav({active,set}){
   const tabs=[{id:"rife",i:"⬡",l:"Rife"},{id:"nf",i:"◎",l:"Neurófono"},{id:"ms",i:"◉",l:"Metasonos"},{id:"info",i:"✦",l:"Info"}];
-  return(
-    <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
-      {tabs.map(t=>(
-        <button key={t.id} onClick={()=>set(t.id)} style={{flex:1,padding:"11px 4px 9px",background:"none",border:"none",cursor:"pointer",color:active===t.id?C.gold:C.muted,borderBottom:active===t.id?`2px solid ${C.gold}`:"2px solid transparent",fontSize:10,letterSpacing:0.5}}>
-          <div style={{fontSize:15,marginBottom:2}}>{t.i}</div>{t.l}
-        </button>
-      ))}
-    </div>
-  );
+  return<div style={{display:"flex",borderBottom:"1px solid #1a2a4a",background:"#0a1020"}}>{tabs.map(t=><button key={t.id} onClick={()=>set(t.id)} style={{flex:1,padding:"11px 4px 9px",background:"none",border:"none",cursor:"pointer",color:active===t.id?"#c8a84b":"#5a7090",borderBottom:active===t.id?"2px solid #c8a84b":"2px solid transparent",fontSize:10,letterSpacing:0.5}}><div style={{fontSize:15,marginBottom:2}}>{t.i}</div>{t.l}</button>)}</div>;
 }
 
-// ══ MÓDULO RIFE ═══════════════════════════════════════════════
+// ══ RIFE ══════════════════════════════════════════════════════
 function Rife(){
-  const[q,setQ]=useState("");const[cat,setCat]=useState("Todos");const[sel,setSel]=useState(null);
-  const[playing,setPlaying]=useState(false);const[aFreq,setAFreq]=useState(0);const aRef=useRef(null);
+  const[q,setQ]=useState("");const[cat,setCat]=useState("Todos");const[sel,setSel]=useState(null);const[playing,setPlaying]=useState(false);const[aFreq,setAFreq]=useState(0);const aRef=useRef(null);
   const stop=()=>{aRef.current?.stop();aRef.current=null;setPlaying(false);};
   const toggle=f=>{if(playing&&aFreq===f){stop();return;}stop();aRef.current=playTone(f);setAFreq(f);setPlaying(true);};
   useEffect(()=>()=>stop(),[]);
   const list=RIFE.filter(r=>(cat==="Todos"||r.c===cat)&&r.n.toLowerCase().includes(q.toLowerCase()));
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar padecimiento..." style={{width:"100%",boxSizing:"border-box",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 14px",color:C.text,fontSize:13,outline:"none",marginBottom:10}}/>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar padecimiento..." style={{width:"100%",boxSizing:"border-box",background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:10,padding:"11px 14px",color:"#e8f0ff",fontSize:13,outline:"none",marginBottom:10}}/>
       <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:8,marginBottom:14}}>
-        {["Todos",...RIFE_CATS].map(c=>(
-          <button key={c} onClick={()=>setCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:15,border:`1px solid ${cat===c?C.gold:C.border}`,background:cat===c?"rgba(200,168,75,0.15)":"none",color:cat===c?C.gold:C.muted,fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{c}</button>
-        ))}
+        {["Todos",...RIFE_CATS].map(c=><button key={c} onClick={()=>setCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:15,border:`1px solid ${cat===c?"#c8a84b":"#1a2a4a"}`,background:cat===c?"rgba(200,168,75,0.15)":"none",color:cat===c?"#c8a84b":"#5a7090",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{c}</button>)}
       </div>
       {sel?(
         <div>
-          <button onClick={()=>{stop();setSel(null);}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,marginBottom:14}}>← Volver</button>
-          <div style={{background:`linear-gradient(135deg,${C.card},#0f1a30)`,border:`1px solid ${C.goldD}`,borderRadius:14,padding:20}}>
-            <div style={{color:C.gold,fontSize:17,fontWeight:800,marginBottom:6}}>{sel.n}</div>
-            <Badge l={sel.c}/>
+          <button onClick={()=>{stop();setSel(null);}} style={{background:"none",border:"1px solid #1a2a4a",color:"#5a7090",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,marginBottom:14}}>← Volver</button>
+          <div style={{background:"linear-gradient(135deg,#0d1428,#0f1a30)",border:"1px solid #8a6f2a",borderRadius:14,padding:20}}>
+            <div style={{color:"#c8a84b",fontSize:17,fontWeight:800,marginBottom:6}}>{sel.n}</div><Badge l={sel.c}/>
             <div style={{marginTop:14,display:"grid",gap:10}}>
-              {sel.f.map((f,i)=>(
-                <div key={i} style={{background:C.surface,borderRadius:10,padding:"11px 14px",border:`1px solid ${playing&&aFreq===f?C.gold:C.border}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                    <span style={{color:C.goldL,fontWeight:700,fontSize:15}}>{f} Hz</span>
-                    <button onClick={()=>toggle(f)} style={{background:playing&&aFreq===f?C.gold:"rgba(200,168,75,0.15)",border:`1px solid ${C.goldD}`,color:playing&&aFreq===f?"#000":C.gold,borderRadius:20,padding:"5px 14px",cursor:"pointer",fontWeight:700,fontSize:11}}>
-                      {playing&&aFreq===f?"◼ STOP":"▶ PLAY"}
-                    </button>
-                  </div>
-                  <WaveViz active={playing&&aFreq===f} freq={f}/>
+              {sel.f.map((f,i)=><div key={i} style={{background:"#0a1020",borderRadius:10,padding:"11px 14px",border:`1px solid ${playing&&aFreq===f?"#c8a84b":"#1a2a4a"}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <span style={{color:"#e8c86a",fontWeight:700,fontSize:15}}>{f} Hz</span>
+                  <button onClick={()=>toggle(f)} style={{background:playing&&aFreq===f?"#c8a84b":"rgba(200,168,75,0.15)",border:"1px solid #8a6f2a",color:playing&&aFreq===f?"#000":"#c8a84b",borderRadius:20,padding:"5px 14px",cursor:"pointer",fontWeight:700,fontSize:11}}>{playing&&aFreq===f?"◼ STOP":"▶ PLAY"}</button>
                 </div>
-              ))}
+                <WaveViz active={playing&&aFreq===f} freq={f}/>
+              </div>)}
             </div>
-            <div style={{color:C.muted,fontSize:11,marginTop:14,lineHeight:1.7,padding:"10px 12px",background:"rgba(0,0,0,0.3)",borderRadius:8,borderLeft:`2px solid ${C.goldD}`}}>
-              <strong style={{color:C.gold}}>Protocolo:</strong> Aplica cada frecuencia 3–5 min. Potencia con dispositivos Metayantra.
-            </div>
+            <div style={{color:"#5a7090",fontSize:11,marginTop:14,lineHeight:1.7,padding:"10px 12px",background:"rgba(0,0,0,0.3)",borderRadius:8,borderLeft:"2px solid #8a6f2a"}}><strong style={{color:"#c8a84b"}}>Protocolo:</strong> Aplica cada frecuencia 3–5 min. Potencia con dispositivos Metayantra.</div>
           </div>
           <CTA type="shop"/>
         </div>
       ):(
         <div style={{display:"grid",gap:8}}>
-          {list.map((r,i)=>(
-            <button key={i} onClick={()=>setSel(r)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 14px",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div><div style={{color:C.text,fontSize:13,fontWeight:600}}>{r.n}</div><div style={{color:C.muted,fontSize:11,marginTop:2}}>{r.f.length} frecuencias · {r.c}</div></div>
-              <span style={{color:C.gold,fontSize:18}}>›</span>
-            </button>
-          ))}
-          {list.length===0&&<div style={{color:C.muted,textAlign:"center",padding:30}}>Sin resultados.</div>}
+          {list.map((r,i)=><button key={i} onClick={()=>setSel(r)} style={{background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:10,padding:"11px 14px",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{color:"#e8f0ff",fontSize:13,fontWeight:600}}>{r.n}</div><div style={{color:"#5a7090",fontSize:11,marginTop:2}}>{r.f.length} frecuencias · {r.c}</div></div>
+            <span style={{color:"#c8a84b",fontSize:18}}>›</span>
+          </button>)}
+          {list.length===0&&<div style={{color:"#5a7090",textAlign:"center",padding:30}}>Sin resultados.</div>}
           {list.length>8&&<CTA type="wa"/>}
         </div>
       )}
@@ -417,229 +313,120 @@ function Rife(){
   );
 }
 
-// ══ MÓDULO NEURÓFONO ══════════════════════════════════════════
+// ══ NEURÓFONO ════════════════════════════════════════════════
 function Neurofono(){
-  const[q,setQ]=useState("");const[res,setRes]=useState(null);const[loading,setLoading]=useState(false);
-  const[playing,setPlaying]=useState(false);const aRef=useRef(null);
+  const[q,setQ]=useState("");const[res,setRes]=useState(null);const[loading,setLoading]=useState(false);const[playing,setPlaying]=useState(false);const aRef=useRef(null);
   const stop=()=>{aRef.current?.stop();aRef.current=null;setPlaying(false);};
   const toggle=()=>{if(playing){stop();return;}aRef.current=playTone(res.frequency);setPlaying(true);};
   useEffect(()=>()=>stop(),[]);
   const gen=async()=>{
     if(!q.trim()||loading)return;stop();setRes(null);setLoading(true);
-    try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,
-          system:`Eres experto en Neurófono de Patrick Flanagan. Rango 7000-40000 Hz, conducción capacitiva cutánea.
-Responde SOLO con JSON sin backticks: {"frequency":<int>,"name":"<nombre>","description":"<texto>","protocol":"<texto>"}`,
-          messages:[{role:"user",content:`Propósito: ${q}`}]})});
-      const d=await r.json();
-      const txt=d.content?.find(b=>b.type==="text")?.text||"{}";
-      setRes(JSON.parse(txt.replace(/```json|```/g,"").trim()));
-    }catch{setRes({frequency:14000,name:"Onda de Claridad Cuántica",description:"Frecuencia de coherencia neurológica gamma del hipocampo. Resuena con el campo toroidal del corazón.",protocol:"20-30 min, mañana en ayunas, columna erguida."});}
+    try{const r=await callAI(`Eres experto en Neurófono de Patrick Flanagan. Rango 7000-40000 Hz, conducción capacitiva cutánea. JSON sin backticks: {"frequency":<int>,"name":"<nombre>","description":"<texto>","protocol":"<texto>"}`,`Propósito: ${q}`);setRes(r);}
+    catch{setRes({frequency:14000,name:"Onda de Claridad Cuántica",description:"Frecuencia de coherencia neurológica gamma del hipocampo. Resuena con el campo toroidal del corazón.",protocol:"20-30 min, mañana en ayunas, columna erguida."});}
     setLoading(false);
   };
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <div style={{textAlign:"center",marginBottom:14}}>
-        <div style={{fontSize:26,marginBottom:4}}>◎</div>
-        <div style={{color:C.gold,fontSize:14,fontWeight:700,letterSpacing:1}}>Generador Neurófono</div>
-        <div style={{color:C.muted,fontSize:11,marginTop:4}}>Frecuencias ultrasónicas · 7,000–40,000 Hz</div>
-      </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:14,fontSize:12,color:C.muted,lineHeight:1.7}}>
-        El <strong style={{color:C.gold}}>Neurófono</strong> de Dr. Patrick Flanagan transmite sonido al cerebro a través de la piel — sin pasar por el oído convencional.
-      </div>
-      <textarea value={q} onChange={e=>setQ(e.target.value)} rows={4} placeholder="Describe tu intención... (ej: mejorar memoria, reducir ansiedad, expandir meditación...)"
-        style={{width:"100%",boxSizing:"border-box",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:13,outline:"none",resize:"vertical"}}/>
+      <div style={{textAlign:"center",marginBottom:14}}><div style={{fontSize:26,marginBottom:4}}>◎</div><div style={{color:"#c8a84b",fontSize:14,fontWeight:700,letterSpacing:1}}>Generador Neurófono</div><div style={{color:"#5a7090",fontSize:11,marginTop:4}}>Frecuencias ultrasónicas · 7,000–40,000 Hz</div></div>
+      <div style={{background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:12,padding:14,marginBottom:14,fontSize:12,color:"#5a7090",lineHeight:1.7}}>El <strong style={{color:"#c8a84b"}}>Neurófono</strong> de Dr. Patrick Flanagan transmite sonido al cerebro a través de la piel — sin pasar por el oído convencional.</div>
+      <textarea value={q} onChange={e=>setQ(e.target.value)} rows={4} placeholder="Describe tu intención... (ej: mejorar memoria, reducir ansiedad...)" style={{width:"100%",boxSizing:"border-box",background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:10,padding:"12px 14px",color:"#e8f0ff",fontSize:13,outline:"none",resize:"vertical"}}/>
       <Btn onClick={gen} disabled={!q.trim()||loading} full>{loading?"Calculando...":"◎ Generar Frecuencia"}</Btn>
-      {res&&(
-        <div style={{marginTop:18}}>
-          <div style={{background:`linear-gradient(135deg,${C.card},#0f1a30)`,border:`1px solid ${C.gold}`,borderRadius:14,padding:20}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-              <div>
-                <div style={{color:C.gold,fontSize:22,fontWeight:800}}>{res.frequency?.toLocaleString()} Hz</div>
-                <div style={{color:C.goldL,fontSize:13,marginTop:2}}>{res.name}</div>
-              </div>
-              <button onClick={toggle} style={{background:playing?C.gold:"rgba(200,168,75,0.15)",border:`1px solid ${C.goldD}`,color:playing?"#000":C.gold,borderRadius:25,padding:"10px 18px",cursor:"pointer",fontWeight:800,fontSize:12,whiteSpace:"nowrap"}}>
-                {playing?"◼ STOP":"▶ PLAY"}
-              </button>
-            </div>
-            <WaveViz active={playing} freq={res.frequency}/>
-            <div style={{color:C.muted,fontSize:12,lineHeight:1.7,margin:"12px 0"}}>{res.description}</div>
-            <div style={{background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"10px 12px",borderLeft:`2px solid ${C.goldD}`}}>
-              <div style={{color:C.gold,fontSize:10,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Protocolo</div>
-              <div style={{color:C.muted,fontSize:12,lineHeight:1.6}}>{res.protocol}</div>
-            </div>
+      {res&&<div style={{marginTop:18}}>
+        <div style={{background:"linear-gradient(135deg,#0d1428,#0f1a30)",border:"1px solid #c8a84b",borderRadius:14,padding:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+            <div><div style={{color:"#c8a84b",fontSize:22,fontWeight:800}}>{res.frequency?.toLocaleString()} Hz</div><div style={{color:"#e8c86a",fontSize:13,marginTop:2}}>{res.name}</div></div>
+            <button onClick={toggle} style={{background:playing?"#c8a84b":"rgba(200,168,75,0.15)",border:"1px solid #8a6f2a",color:playing?"#000":"#c8a84b",borderRadius:25,padding:"10px 18px",cursor:"pointer",fontWeight:800,fontSize:12,whiteSpace:"nowrap"}}>{playing?"◼ STOP":"▶ PLAY"}</button>
           </div>
-          <CTA type="shop"/>
+          <WaveViz active={playing} freq={res.frequency}/>
+          <div style={{color:"#5a7090",fontSize:12,lineHeight:1.7,margin:"12px 0"}}>{res.description}</div>
+          <div style={{background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"10px 12px",borderLeft:"2px solid #8a6f2a"}}><div style={{color:"#c8a84b",fontSize:10,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Protocolo</div><div style={{color:"#5a7090",fontSize:12,lineHeight:1.6}}>{res.protocol}</div></div>
         </div>
-      )}
+        <CTA type="shop"/>
+      </div>}
     </div>
   );
 }
 
-// ══ MÓDULO METASONOS ══════════════════════════════════════════
+// ══ METASONOS ════════════════════════════════════════════════
 function Metasonos(){
-  const[mode,setMode]=useState("ia");const[sel,setSel]=useState(null);const[playing,setPlaying]=useState(false);
-  const[cat,setCat]=useState("Todos");const[q,setQ]=useState("");const[res,setRes]=useState(null);const[loading,setLoading]=useState(false);
-  const aRef=useRef(null);
-  const stop=()=>{aRef.current?.stop();aRef.current=null;setPlaying(false);};
+  const[mode,setMode]=useState("ia");const[sel,setSel]=useState(null);const[playing,setPlaying]=useState(false);const[cat,setCat]=useState("Todos");const[q,setQ]=useState("");const[res,setRes]=useState(null);const[loading,setLoading]=useState(false);
+  const aRef=useRef(null);const stop=()=>{aRef.current?.stop();aRef.current=null;setPlaying(false);};
   const toggleBin=(b,cr)=>{if(playing){stop();return;}aRef.current=playBin(b,cr);setPlaying(true);};
   useEffect(()=>()=>stop(),[]);
-
   const gen=async()=>{
     if(!q.trim()||loading)return;stop();setRes(null);setLoading(true);
-    try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,
-          system:`Experto en neuroacústica. Binaural: oído izq=carrier, oído der=carrier+beat.
-Delta 0.5-4Hz=sueño. Theta 4-8Hz=meditación. Alpha 8-13Hz=relajación. Beta 13-30Hz=concentración. Gamma 30-100Hz=cognición.
-Solfeggio: 396,417,528,639,741,852,963.
-JSON sin backticks: {"name":"<nombre>","beat":<decimal>,"carrier":<int>,"cat":"<tipo>","desc":"<texto>","protocol":"<texto>"}`,
-          messages:[{role:"user",content:`Propósito: ${q}`}]})});
-      const d=await r.json();
-      const txt=d.content?.find(b=>b.type==="text")?.text||"{}";
-      setRes(JSON.parse(txt.replace(/```json|```/g,"").trim()));
-    }catch{setRes({name:"Onda de Armonía Visceral",beat:6,carrier:300,cat:"Theta",desc:"Frecuencia Theta que armoniza el sistema nervioso entérico. Activa la respuesta vagal parasimpática.",protocol:"15-20 min, acostado, manos sobre el abdomen."});}
+    try{const r=await callAI(`Experto en neuroacústica y binaurales. Oído izq=carrier, oído der=carrier+beat. Delta 0.5-4Hz, Theta 4-8Hz, Alpha 8-13Hz, Beta 13-30Hz, Gamma 30-100Hz. Solfeggio: 396,417,528,639,741,852,963. JSON sin backticks: {"name":"<nombre>","beat":<decimal>,"carrier":<int>,"cat":"<tipo>","desc":"<texto>","protocol":"<texto>"}`,`Propósito: ${q}`);setRes(r);}
+    catch{setRes({name:"Onda de Armonía Visceral",beat:6,carrier:300,cat:"Theta",desc:"Frecuencia Theta que armoniza el sistema nervioso entérico.",protocol:"15-20 min, acostado, manos sobre el abdomen."});}
     setLoading(false);
   };
-
-  const bCats=["Todos",...new Set(BIN.map(b=>b.cat))];
-  const filtBin=BIN.filter(b=>cat==="Todos"||b.cat===cat);
-
+  const bCats=["Todos",...new Set(BIN.map(b=>b.cat))];const filtBin=BIN.filter(b=>cat==="Todos"||b.cat===cat);
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <div style={{textAlign:"center",marginBottom:12}}>
-        <div style={{fontSize:26,marginBottom:4}}>◉</div>
-        <div style={{color:C.gold,fontSize:14,fontWeight:700,letterSpacing:1}}>Metasonos</div>
-        <div style={{color:C.muted,fontSize:11,marginTop:4}}>Frecuencias Binaurales · Requiere audífonos estéreo</div>
+      <div style={{textAlign:"center",marginBottom:12}}><div style={{fontSize:26,marginBottom:4}}>◉</div><div style={{color:"#c8a84b",fontSize:14,fontWeight:700,letterSpacing:1}}>Metasonos</div><div style={{color:"#5a7090",fontSize:11,marginTop:4}}>Frecuencias Binaurales · Requiere audífonos estéreo</div></div>
+      <div style={{background:"rgba(200,168,75,0.07)",border:"1px solid #8a6f2a",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:11,color:"#c8a84b",textAlign:"center"}}>⚠ Usa audífonos estéreo para el arrastre cerebral binaural</div>
+      <div style={{display:"flex",background:"#0a1020",borderRadius:10,padding:4,marginBottom:18,border:"1px solid #1a2a4a"}}>
+        {[["ia","◈ Generar con IA"],["lib","◉ Biblioteca"]].map(([m,l])=><button key={m} onClick={()=>{stop();setSel(null);setRes(null);setMode(m);}} style={{flex:1,padding:"9px 8px",borderRadius:8,border:"none",background:mode===m?"linear-gradient(135deg,rgba(200,168,75,0.25),rgba(200,168,75,0.08))":"none",color:mode===m?"#c8a84b":"#5a7090",fontWeight:mode===m?700:400,fontSize:12,cursor:"pointer"}}>{l}</button>)}
       </div>
-      <div style={{background:"rgba(200,168,75,0.07)",border:`1px solid ${C.goldD}`,borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:11,color:C.gold,textAlign:"center"}}>
-        ⚠ Usa audífonos estéreo para el arrastre cerebral binaural
-      </div>
-      <div style={{display:"flex",background:C.surface,borderRadius:10,padding:4,marginBottom:18,border:`1px solid ${C.border}`}}>
-        {[["ia","◈ Generar con IA"],["lib","◉ Biblioteca"]].map(([m,l])=>(
-          <button key={m} onClick={()=>{stop();setSel(null);setRes(null);setMode(m);}} style={{flex:1,padding:"9px 8px",borderRadius:8,border:"none",background:mode===m?`linear-gradient(135deg,rgba(200,168,75,0.25),rgba(200,168,75,0.08))`:"none",color:mode===m?C.gold:C.muted,fontWeight:mode===m?700:400,fontSize:12,cursor:"pointer"}}>{l}</button>
-        ))}
-      </div>
-      {mode==="ia"&&(
-        <div>
-          <textarea value={q} onChange={e=>setQ(e.target.value)} rows={4} placeholder="Ej: me duele la panza, no puedo dormir, quiero meditar más profundo..."
-            style={{width:"100%",boxSizing:"border-box",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:13,outline:"none",resize:"vertical"}}/>
-          <Btn onClick={gen} disabled={!q.trim()||loading} full>{loading?"Calculando binaural...":"◉ Generar Frecuencia"}</Btn>
-          {res&&(
-            <div style={{marginTop:18}}>
-              <div style={{background:`linear-gradient(135deg,${C.card},#0f1a30)`,border:`1px solid ${C.gold}`,borderRadius:14,padding:20}}>
-                <div style={{color:C.gold,fontSize:16,fontWeight:800,marginBottom:8}}>{res.name}</div>
-                <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-                  <Badge l={res.cat}/><Badge l={`Beat ${res.beat} Hz`}/><Badge l={`Carrier ${res.carrier} Hz`}/>
-                </div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                  <div style={{fontSize:11,color:C.muted}}>
-                    <div>Canal L: <span style={{color:C.text}}>{res.carrier} Hz</span></div>
-                    <div>Canal R: <span style={{color:C.text}}>{res.carrier+res.beat} Hz</span></div>
-                    <div>Beat: <span style={{color:C.gold,fontWeight:700}}>{res.beat} Hz</span></div>
-                  </div>
-                  <button onClick={()=>toggleBin(res.beat,res.carrier)} style={{background:playing?C.gold:"rgba(200,168,75,0.15)",border:`1px solid ${C.goldD}`,color:playing?"#000":C.gold,borderRadius:25,padding:"10px 18px",cursor:"pointer",fontWeight:800,fontSize:12}}>
-                    {playing?"◼ STOP":"▶ PLAY"}
-                  </button>
-                </div>
-                <WaveViz active={playing} freq={res.carrier} color={C.accent}/>
-                <div style={{color:C.muted,fontSize:12,lineHeight:1.7,margin:"12px 0"}}>{res.desc}</div>
-                <div style={{background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"10px 12px",borderLeft:`2px solid ${C.goldD}`}}>
-                  <div style={{color:C.gold,fontSize:10,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Protocolo</div>
-                  <div style={{color:C.muted,fontSize:12,lineHeight:1.6}}>{res.protocol}</div>
-                </div>
-              </div>
-              <CTA type="shop"/>
+      {mode==="ia"&&<div>
+        <textarea value={q} onChange={e=>setQ(e.target.value)} rows={4} placeholder="Ej: me duele la panza, no puedo dormir, quiero meditar más profundo..." style={{width:"100%",boxSizing:"border-box",background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:10,padding:"12px 14px",color:"#e8f0ff",fontSize:13,outline:"none",resize:"vertical"}}/>
+        <Btn onClick={gen} disabled={!q.trim()||loading} full>{loading?"Calculando binaural...":"◉ Generar Frecuencia"}</Btn>
+        {res&&<div style={{marginTop:18}}>
+          <div style={{background:"linear-gradient(135deg,#0d1428,#0f1a30)",border:"1px solid #c8a84b",borderRadius:14,padding:20}}>
+            <div style={{color:"#c8a84b",fontSize:16,fontWeight:800,marginBottom:8}}>{res.name}</div>
+            <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}><Badge l={res.cat}/><Badge l={`Beat ${res.beat} Hz`}/><Badge l={`Carrier ${res.carrier} Hz`}/></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontSize:11,color:"#5a7090"}}><div>Canal L: <span style={{color:"#e8f0ff"}}>{res.carrier} Hz</span></div><div>Canal R: <span style={{color:"#e8f0ff"}}>{res.carrier+res.beat} Hz</span></div><div>Beat: <span style={{color:"#c8a84b",fontWeight:700}}>{res.beat} Hz</span></div></div>
+              <button onClick={()=>toggleBin(res.beat,res.carrier)} style={{background:playing?"#c8a84b":"rgba(200,168,75,0.15)",border:"1px solid #8a6f2a",color:playing?"#000":"#c8a84b",borderRadius:25,padding:"10px 18px",cursor:"pointer",fontWeight:800,fontSize:12}}>{playing?"◼ STOP":"▶ PLAY"}</button>
             </div>
-          )}
-        </div>
-      )}
-      {mode==="lib"&&(sel?(
-        <div>
-          <button onClick={()=>{stop();setSel(null);}} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,marginBottom:14}}>← Volver</button>
-          <div style={{background:`linear-gradient(135deg,${C.card},#0f1a30)`,border:`1px solid ${C.gold}`,borderRadius:14,padding:20}}>
-            <div style={{color:C.gold,fontSize:17,fontWeight:800}}>{sel.n}</div>
-            <div style={{display:"flex",gap:8,margin:"10px 0",flexWrap:"wrap"}}><Badge l={sel.cat}/><Badge l={`Beat ${sel.b} Hz`}/></div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
-              <div style={{fontSize:11,color:C.muted}}>
-                <div>Canal L: <span style={{color:C.text}}>{sel.cr} Hz</span></div>
-                <div>Canal R: <span style={{color:C.text}}>{sel.cr+sel.b} Hz</span></div>
-                <div>Beat: <span style={{color:C.gold,fontWeight:700}}>{sel.b} Hz</span></div>
-              </div>
-              <button onClick={()=>toggleBin(sel.b,sel.cr)} style={{background:playing?C.gold:"rgba(200,168,75,0.15)",border:`1px solid ${C.goldD}`,color:playing?"#000":C.gold,borderRadius:25,padding:"10px 18px",cursor:"pointer",fontWeight:800,fontSize:12}}>
-                {playing?"◼ STOP":"▶ PLAY"}
-              </button>
-            </div>
-            <WaveViz active={playing} freq={sel.cr} color={C.accent}/>
-            <div style={{color:C.muted,fontSize:12,lineHeight:1.7,margin:"12px 0"}}>{sel.d}</div>
-            <div style={{background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"10px 12px",borderLeft:`2px solid ${C.goldD}`}}>
-              <div style={{color:C.gold,fontSize:10,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Protocolo</div>
-              <div style={{color:C.muted,fontSize:12,lineHeight:1.6}}>{sel.p}</div>
-            </div>
+            <WaveViz active={playing} freq={res.carrier} color="#00c8ff"/>
+            <div style={{color:"#5a7090",fontSize:12,lineHeight:1.7,margin:"12px 0"}}>{res.desc}</div>
+            <div style={{background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"10px 12px",borderLeft:"2px solid #8a6f2a"}}><div style={{color:"#c8a84b",fontSize:10,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Protocolo</div><div style={{color:"#5a7090",fontSize:12,lineHeight:1.6}}>{res.protocol}</div></div>
           </div>
-          <CTA type="wa"/>
-        </div>
-      ):(
-        <div>
-          <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:8,marginBottom:12}}>
-            {bCats.map(c=>(
-              <button key={c} onClick={()=>setCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:15,border:`1px solid ${cat===c?C.gold:C.border}`,background:cat===c?"rgba(200,168,75,0.15)":"none",color:cat===c?C.gold:C.muted,fontSize:11,cursor:"pointer"}}>{c}</button>
-            ))}
+          <CTA type="shop"/>
+        </div>}
+      </div>}
+      {mode==="lib"&&(sel?<div>
+        <button onClick={()=>{stop();setSel(null);}} style={{background:"none",border:"1px solid #1a2a4a",color:"#5a7090",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,marginBottom:14}}>← Volver</button>
+        <div style={{background:"linear-gradient(135deg,#0d1428,#0f1a30)",border:"1px solid #c8a84b",borderRadius:14,padding:20}}>
+          <div style={{color:"#c8a84b",fontSize:17,fontWeight:800}}>{sel.n}</div>
+          <div style={{display:"flex",gap:8,margin:"10px 0",flexWrap:"wrap"}}><Badge l={sel.cat}/><Badge l={`Beat ${sel.b} Hz`}/></div>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+            <div style={{fontSize:11,color:"#5a7090"}}><div>Canal L: <span style={{color:"#e8f0ff"}}>{sel.cr} Hz</span></div><div>Canal R: <span style={{color:"#e8f0ff"}}>{sel.cr+sel.b} Hz</span></div><div>Beat: <span style={{color:"#c8a84b",fontWeight:700}}>{sel.b} Hz</span></div></div>
+            <button onClick={()=>toggleBin(sel.b,sel.cr)} style={{background:playing?"#c8a84b":"rgba(200,168,75,0.15)",border:"1px solid #8a6f2a",color:playing?"#000":"#c8a84b",borderRadius:25,padding:"10px 18px",cursor:"pointer",fontWeight:800,fontSize:12}}>{playing?"◼ STOP":"▶ PLAY"}</button>
           </div>
-          <div style={{display:"grid",gap:8}}>
-            {filtBin.map((b,i)=>(
-              <button key={i} onClick={()=>setSel(b)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 14px",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div><div style={{color:C.text,fontSize:13,fontWeight:600}}>{b.n}</div><div style={{color:C.muted,fontSize:11,marginTop:2}}>{b.cat} · Beat {b.b} Hz</div></div>
-                <span style={{color:C.gold,fontSize:18}}>›</span>
-              </button>
-            ))}
-          </div>
+          <WaveViz active={playing} freq={sel.cr} color="#00c8ff"/>
+          <div style={{color:"#5a7090",fontSize:12,lineHeight:1.7,margin:"12px 0"}}>{sel.d}</div>
+          <div style={{background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"10px 12px",borderLeft:"2px solid #8a6f2a"}}><div style={{color:"#c8a84b",fontSize:10,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Protocolo</div><div style={{color:"#5a7090",fontSize:12,lineHeight:1.6}}>{sel.p}</div></div>
         </div>
-      ))}
+        <CTA type="wa"/>
+      </div>:<div>
+        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:8,marginBottom:12}}>
+          {bCats.map(c=><button key={c} onClick={()=>setCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:15,border:`1px solid ${cat===c?"#c8a84b":"#1a2a4a"}`,background:cat===c?"rgba(200,168,75,0.15)":"none",color:cat===c?"#c8a84b":"#5a7090",fontSize:11,cursor:"pointer"}}>{c}</button>)}
+        </div>
+        <div style={{display:"grid",gap:8}}>
+          {filtBin.map((b,i)=><button key={i} onClick={()=>setSel(b)} style={{background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:10,padding:"11px 14px",cursor:"pointer",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{color:"#e8f0ff",fontSize:13,fontWeight:600}}>{b.n}</div><div style={{color:"#5a7090",fontSize:11,marginTop:2}}>{b.cat} · Beat {b.b} Hz</div></div>
+            <span style={{color:"#c8a84b",fontSize:18}}>›</span>
+          </button>)}
+        </div>
+      </div>)}
     </div>
   );
 }
 
 // ══ INFO ══════════════════════════════════════════════════════
 function Info(){
-  const prods=[
-    {n:"Collar iTorus",d:"Bobina Rodin en titanio. Campo toroidal coherente.",t:"Más vendido"},
-    {n:"Orgonita Piezoeléctrica",d:"Capas con turmalina, cuarzo y orgonita de alta densidad.",t:"Bestseller"},
-    {n:"Neurófono Metayantra",d:"Transmisor ultrasónico por conducción capacitiva cutánea.",t:"Exclusivo"},
-    {n:"Collar Vector Dorado",d:"Geometría áurea con resonancia Schumann integrada.",t:"Premium"},
-    {n:"Amuleto Kalachakra",d:"Símbolo tibetano con frecuencias de protección espiritual.",t:"Artesanal"},
-  ];
+  const prods=[{n:"Collar iTorus",d:"Bobina Rodin en titanio. Campo toroidal coherente.",t:"Más vendido"},{n:"Orgonita Piezoeléctrica",d:"Capas con turmalina, cuarzo y orgonita.",t:"Bestseller"},{n:"Neurófono Metayantra",d:"Transmisor ultrasónico por conducción capacitiva.",t:"Exclusivo"},{n:"Collar Vector Dorado",d:"Geometría áurea con resonancia Schumann.",t:"Premium"},{n:"Amuleto Kalachakra",d:"Símbolo tibetano con frecuencias de protección.",t:"Artesanal"}];
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <div style={{textAlign:"center",marginBottom:20}}>
-        <div style={{fontSize:26,color:C.gold,marginBottom:4}}>✦</div>
-        <div style={{color:C.gold,fontSize:15,fontWeight:800}}>Metayantra</div>
-        <div style={{color:C.muted,fontSize:12,marginTop:4,lineHeight:1.6}}>Uniendo Ciencia con Misticismo desde 2003</div>
-      </div>
+      <div style={{textAlign:"center",marginBottom:20}}><div style={{fontSize:26,color:"#c8a84b",marginBottom:4}}>✦</div><div style={{color:"#c8a84b",fontSize:15,fontWeight:800}}>Metayantra</div><div style={{color:"#5a7090",fontSize:12,marginTop:4,lineHeight:1.6}}>Uniendo Ciencia con Misticismo desde 2003</div></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
-        {[{i:"⬡",n:"20+",l:"Años"},{i:"◈",n:"2,500+",l:"Reseñas"},{i:"◎",n:"6",l:"Continentes"},{i:"✦",n:"Gaia TV",l:"SUPERHUMAN"}].map(p=>(
-          <div key={p.n} style={{background:C.card,border:`1px solid ${C.goldD}`,borderRadius:12,padding:"14px 10px",textAlign:"center"}}>
-            <div style={{color:C.gold,fontSize:18}}>{p.i}</div>
-            <div style={{color:C.goldL,fontSize:18,fontWeight:800,margin:"4px 0"}}>{p.n}</div>
-            <div style={{color:C.muted,fontSize:10}}>{p.l}</div>
-          </div>
-        ))}
+        {[{i:"⬡",n:"20+",l:"Años"},{i:"◈",n:"2,500+",l:"Reseñas"},{i:"◎",n:"6",l:"Continentes"},{i:"✦",n:"Gaia TV",l:"SUPERHUMAN"}].map(p=><div key={p.n} style={{background:"#0d1428",border:"1px solid #8a6f2a",borderRadius:12,padding:"14px 10px",textAlign:"center"}}><div style={{color:"#c8a84b",fontSize:18}}>{p.i}</div><div style={{color:"#e8c86a",fontSize:18,fontWeight:800,margin:"4px 0"}}>{p.n}</div><div style={{color:"#5a7090",fontSize:10}}>{p.l}</div></div>)}
       </div>
       <CTA type="shop"/>
-      {prods.map(p=>(
-        <div key={p.n} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 14px",marginBottom:8}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-            <div style={{color:C.text,fontWeight:700,fontSize:12}}>{p.n}</div>
-            <Badge l={p.t}/>
-          </div>
-          <div style={{color:C.muted,fontSize:11,marginTop:5,lineHeight:1.6}}>{p.d}</div>
-        </div>
-      ))}
+      {prods.map(p=><div key={p.n} style={{background:"#0d1428",border:"1px solid #1a2a4a",borderRadius:10,padding:"11px 14px",marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{color:"#e8f0ff",fontWeight:700,fontSize:12}}>{p.n}</div><Badge l={p.t}/></div><div style={{color:"#5a7090",fontSize:11,marginTop:5,lineHeight:1.6}}>{p.d}</div></div>)}
       <CTA type="wa"/>
-      <div style={{textAlign:"center",color:C.muted,fontSize:10,marginTop:16,lineHeight:1.8}}>
-        Uso complementario · No sustituye atención médica<br/>© 2025 Metayantra · metayantra.com.mx
-      </div>
+      <div style={{textAlign:"center",color:"#5a7090",fontSize:10,marginTop:16,lineHeight:1.8}}>Uso complementario · No sustituye atención médica<br/>© 2025 Metayantra · metayantra.com.mx</div>
     </div>
   );
 }
@@ -648,18 +435,12 @@ function Info(){
 function FrequencyLab({user,onLogout}){
   const[tab,setTab]=useState("rife");
   return(
-    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"system-ui,-apple-system,sans-serif",maxWidth:480,margin:"0 auto",position:"relative"}}>
+    <div style={{background:"#05080f",minHeight:"100vh",color:"#e8f0ff",maxWidth:480,margin:"0 auto",position:"relative"}}>
       <AppHeader user={user} onLogout={onLogout}/>
       <Nav active={tab} set={setTab}/>
-      {tab==="rife"&&<Rife/>}
-      {tab==="nf"&&<Neurofono/>}
-      {tab==="ms"&&<Metasonos/>}
-      {tab==="info"&&<Info/>}
+      {tab==="rife"&&<Rife/>}{tab==="nf"&&<Neurofono/>}{tab==="ms"&&<Metasonos/>}{tab==="info"&&<Info/>}
       <div style={{position:"fixed",bottom:16,right:16,zIndex:100}}>
-        <a href="https://wa.link/metayantra" target="_blank" rel="noreferrer"
-          style={{display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${C.gold},${C.goldD})`,color:"#000",fontWeight:800,fontSize:11,padding:"10px 16px",borderRadius:25,textDecoration:"none",boxShadow:"0 4px 20px rgba(200,168,75,0.4)"}}>
-          ◉ WhatsApp
-        </a>
+        <a href="https://wa.link/metayantra" target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#c8a84b,#8a6f2a)",color:"#000",fontWeight:800,fontSize:11,padding:"10px 16px",borderRadius:25,textDecoration:"none",boxShadow:"0 4px 20px rgba(200,168,75,0.4)"}}>◉ WhatsApp</a>
       </div>
     </div>
   );
@@ -667,31 +448,14 @@ function FrequencyLab({user,onLogout}){
 
 // ══ ROOT ══════════════════════════════════════════════════════
 function Root(){
-  const[screen,setScreen]=useState("loading");
-  const[user,setUser]=useState(null);
-
-  useEffect(()=>{
-    const sess=sg(SK.s);
-    if(!sess){setScreen("auth");return;}
-    const users=sg(SK.u);
-    const u=users?.[sess.email];
-    if(!u){setScreen("auth");return;}
-    setUser(u);
-    setScreen(u.sub==="trial"||u.sub==="active"?"app":"pricing");
-  },[]);
-
+  const[screen,setScreen]=useState("loading");const[user,setUser]=useState(null);
+  useEffect(()=>{const sess=sg(SK.s);if(!sess){setScreen("auth");return;}const users=sg(SK.u);const u=users?.[sess.email];if(!u){setScreen("auth");return;}setUser(u);setScreen(u.sub==="trial"||u.sub==="active"?"app":"pricing");},[]);
   const logout=()=>{ss(SK.s,null);setUser(null);setScreen("auth");};
-
-  if(screen==="loading")return(
-    <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:C.gold,fontSize:28}}>✦</div>
-    </div>
-  );
+  if(screen==="loading")return<div style={{background:"#05080f",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"#c8a84b",fontSize:28}}>✦</div></div>;
   if(screen==="auth")return<AuthScreen onAuth={u=>{setUser(u);setScreen(u.sub==="trial"||u.sub==="active"?"app":"pricing");}}/>;
   if(screen==="pricing")return<PricingScreen user={user} onActivated={u=>{setUser(u);setScreen("app");}} onLogout={logout}/>;
   return<FrequencyLab user={user} onLogout={logout}/>;
 }
-
 ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
 </script>
 </body>
