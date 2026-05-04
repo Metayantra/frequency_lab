@@ -207,7 +207,27 @@ function AuthScreen({onAuth}){
 // ══ PRICING ══════════════════════════════════════════════════
 function PricingScreen({user,onActivated,onLogout}){
   const[step,setStep]=useState("plans");const[activating,setActivating]=useState(false);
-  const activate=()=>{setActivating(true);const users=sg(SK.u)||{};const trialEnd=Date.now()+(90*24*60*60*1000);const updated={...users[user.email],sub:"trial",trialEndsAt:trialEnd};users[user.email]=updated;ss(SK.u,users);setStep("done");setTimeout(()=>onActivated(updated),1400);};
+  const[verifyErr,setVerifyErr]=useState("");
+  const activate=async()=>{
+    setActivating(true);setVerifyErr("");
+    try{
+      const r=await fetch(`/api/check-subscription?email=${encodeURIComponent(user.email)}`);
+      const d=await r.json();
+      if(d.active){
+        const users=sg(SK.u)||{};
+        const trialEnd=d.trialEnd||Date.now()+(90*24*60*60*1000);
+        const updated={...users[user.email],sub:"trial",trialEndsAt:trialEnd};
+        users[user.email]=updated;ss(SK.u,users);
+        setStep("done");setTimeout(()=>onActivated(updated),1400);
+      }else{
+        setVerifyErr("⚠️ Pago no verificado aún. Espera unos segundos y vuelve a intentar.");
+        setActivating(false);
+      }
+    }catch{
+      setVerifyErr("Error de conexión. Intenta de nuevo.");
+      setActivating(false);
+    }
+  };
   const feats=["Generador Rife · 40+ padecimientos","Neurófono IA · frecuencias ultrasónicas","Metasonos IA · binaurales por intención","Protocolos científico-místicos","Actualizaciones incluidas","Soporte prioritario Metayantra"];
   if(step==="done")return<div style={{minHeight:"100vh",background:"#05080f",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}><div style={{fontSize:40}}>✦</div><div style={{color:"#c8a84b",fontSize:20,fontWeight:800}}>¡Acceso activado!</div><div style={{color:"#5a7090",fontSize:13}}>Cargando tu Frequency Lab...</div></div>;
   return(
@@ -231,6 +251,7 @@ function PricingScreen({user,onActivated,onLogout}){
             <a href={STRIPE_LINK} target="_blank" rel="noreferrer" onClick={()=>setStep("stripe")} style={{display:"block",background:"linear-gradient(135deg,#c8a84b,#8a6f2a)",color:"#000",fontWeight:800,fontSize:13,padding:"14px",borderRadius:10,textDecoration:"none",textTransform:"uppercase",textAlign:"center"}}>◈ Pago seguro con Stripe →</a>
             {step==="stripe"&&<button onClick={activate} disabled={activating} style={{width:"100%",padding:"12px",background:"none",border:"1px solid #00c8a0",borderRadius:10,color:"#00c8a0",fontWeight:700,fontSize:12,cursor:"pointer"}}>{activating?"Activando...":"✓ Ya completé el registro en Stripe"}</button>}
             {step==="plans"&&<div style={{color:"#5a7090",fontSize:11,textAlign:"center",lineHeight:1.6}}>Al hacer clic serás redirigido a Stripe.<br/>Regresa aquí y confirma tu registro.</div>}
+            {verifyErr&&<div style={{color:"#ff4d6a",fontSize:11,textAlign:"center",padding:"8px",background:"rgba(255,77,106,0.1)",borderRadius:8}}>{verifyErr}</div>}
           </div>
         </div>
         <div style={{background:"rgba(0,200,160,0.07)",border:"1px solid rgba(0,200,160,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:11,color:"#00c8a0",textAlign:"center"}}>🔒 Pago 100% seguro · Stripe · Cancela cuando quieras</div>
